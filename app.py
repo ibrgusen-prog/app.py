@@ -2,79 +2,166 @@ import streamlit as st
 from streamlit_mic_recorder import speech_to_text
 from gtts import gTTS
 import io
+import random
 from datetime import datetime
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Duygu Arkadaşı Tavşan", layout="centered")
+# -------------------------------------------------
+# SAYFA AYARLARI
+# -------------------------------------------------
+st.set_page_config(
+    page_title="Duygu Arkadaşı Tavşan",
+    layout="centered"
+)
 
-# --- SES OLUŞTURMA (Hızlı ve Çocuksu) ---
+# -------------------------------------------------
+# SES OLUŞTURMA (YUMUŞAK / ÇOCUK DOSTU)
+# -------------------------------------------------
 def ses_olustur(metin):
-    # slow=False sesi daha hızlı ve enerjik (çocuksu) yapar
-    tts = gTTS(text=metin, lang='tr', slow=False)
+    tts = gTTS(
+        text=metin,
+        lang="tr",
+        slow=True  # ÇOCUKLAR İÇİN ÇOK ÖNEMLİ
+    )
     fp = io.BytesIO()
     tts.write_to_fp(fp)
     fp.seek(0)
     return fp
 
-# --- DURUM YÖNETİMİ ---
+# -------------------------------------------------
+# CEVAP HAVUZLARI (ÇOCUK PSİKOLOJİSİNE UYGUN)
+# -------------------------------------------------
+CEVAPLAR = {
+    "mutlu": [
+        "Yaşaaasın! Buna çok sevindim!",
+        "Vay canına! Bu çok güzel!",
+        "Kalbin pır pır mı ediyor?"
+    ],
+    "uzgun": [
+        "Hmmm… canın biraz acımış gibi.",
+        "Gel buraya, ben seninleyim.",
+        "Üzgün olmak bazen olur."
+    ],
+    "korkmus": [
+        "Korku bazen minicik bir canavar gibidir.",
+        "Şu an güvendesin, ben buradayım.",
+        "İstersen korkuyu küçültelim."
+    ],
+    "ofkeli": [
+        "Öfke bazen hop diye gelir.",
+        "Birlikte yavaşça nefes alalım mı?",
+        "İçindeki sıcak topu hissediyor musun?"
+    ],
+    "notr": [
+        "Hımm… seni dinliyorum.",
+        "Anlat bakalım.",
+        "Ben buradayım."
+    ]
+}
+
+# -------------------------------------------------
+# DUYGU TESPİTİ (BASİT AMA ETKİLİ)
+# -------------------------------------------------
+def duygu_belirle(metin):
+    m = metin.lower()
+    if any(k in m for k in ["mutlu", "iyi", "güzel", "sevindim", "harika"]):
+        return "mutlu"
+    if any(k in m for k in ["üzgün", "kötü", "ağladım", "canım acıdı"]):
+        return "uzgun"
+    if any(k in m for k in ["korktum", "korkuyorum", "karanlık"]):
+        return "korkmus"
+    if any(k in m for k in ["kızdım", "sinirliyim", "öfkeliyim"]):
+        return "ofkeli"
+    return "notr"
+
+# -------------------------------------------------
+# SESSION STATE
+# -------------------------------------------------
+if "mesajlar" not in st.session_state:
+    st.session_state.mesajlar = [{
+        "rol": "tavsan",
+        "metin": (
+            "Merhaba arkadaşım. Ben Tavşan. "
+            "Seninle oyun oynamayı ve sohbet etmeyi seviyorum. "
+            "Bugün nasılsın?"
+        )
+    }]
+    st.session_state.ilk_ses = False
+
 if "notlar" not in st.session_state:
     st.session_state.notlar = []
-if "mesajlar" not in st.session_state:
-    st.session_state.mesajlar = [{"rol": "tavsan", "metin": "Merhaba arkadaşım! Bugün seninle oyun oynamak ve sohbet etmek için sabırsızlanıyorum. Günün nasıl geçti?"}]
-    st.session_state.ilk_ses_caldi = False
 
-# --- TAVŞAN GÖRSELLERİ (Emojiler yerine temiz ikonlar) ---
-tavsan_resimleri = {
+# -------------------------------------------------
+# GÖRSELLER
+# -------------------------------------------------
+TAVSAN_RESIMLERI = {
     "normal": "https://img.icons8.com/color/200/rabbit.png",
     "mutlu": "https://img.icons8.com/color/200/happy-rabbit.png",
     "uzgun": "https://img.icons8.com/color/200/sad-rabbit.png"
 }
 
-# --- ARAYÜZ ---
-st.title("Duygu Arkadaşı")
+# -------------------------------------------------
+# ARAYÜZ
+# -------------------------------------------------
+st.title("🐰 Duygu Arkadaşı Tavşan")
 
-# Tavşan Durumu Seçimi
-durum = "normal"
-if len(st.session_state.mesajlar) > 1:
-    son_mesaj = st.session_state.mesajlar[-1]["metin"].lower()
-    if any(k in son_mesaj for k in ["harika", "sevindim", "yaşasın"]): durum = "mutlu"
-    if any(k in son_mesaj for k in ["anlıyorum", "yanındayım", "üzülme"]): durum = "uzgun"
+st.image(TAVSAN_RESIMLERI["normal"], width=160)
 
-st.image(tavsan_resimleri[durum], width=180)
+# -------------------------------------------------
+# İLK MESAJI SESLİ OKU (SADECE 1 KEZ)
+# -------------------------------------------------
+if not st.session_state.ilk_ses:
+    ilk = st.session_state.mesajlar[0]["metin"]
+    st.write("**Tavşan:**", ilk)
+    st.audio(ses_olustur(ilk), format="audio/mp3", autoplay=True)
+    st.session_state.ilk_ses = True
 
-# --- SOHBET AKIŞI ---
-# İlk mesajı sesli oku (Sadece bir kere)
-if not st.session_state.ilk_ses_caldi:
-    st.write(f"**Tavşan:** {st.session_state.mesajlar[0]['metin']}")
-    st.audio(ses_olustur(st.session_state.mesajlar[0]['metin']), format='audio/mp3', autoplay=True)
-    st.session_state.ilk_ses_caldi = True
+# -------------------------------------------------
+# ÖNCEKİ MESAJLAR
+# -------------------------------------------------
+for m in st.session_state.mesajlar[1:]:
+    if m["rol"] == "cocuk":
+        st.write("**Sen:**", m["metin"])
+    else:
+        st.write("**Tavşan:**", m["metin"])
 
-# Önceki mesajları göster
-for mesaj in st.session_state.mesajlar[1:]:
-    kim = "**Sen:** " if mesaj["rol"] == "cocuk" else "**Tavşan:** "
-    st.write(kim + mesaj["metin"])
-
-# --- SESLİ GİRDİ ---
+# -------------------------------------------------
+# SESLİ GİRİŞ
+# -------------------------------------------------
 st.write("---")
-text = speech_to_text(language='tr', start_prompt="Konuşmak için dokun", stop_prompt="Dinliyorum...", key='recorder')
+konusma = speech_to_text(
+    language="tr",
+    start_prompt="🎤 Konuşmak için dokun",
+    stop_prompt="Dinliyorum...",
+    key="mic"
+)
 
-if text:
-    # Çocuğun mesajını ekle
-    st.session_state.mesajlar.append({"rol": "cocuk", "metin": text})
-    st.session_state.notlar.append(f"{datetime.now().strftime('%H:%M')} - Çocuk: {text}")
-    
-    # Cevap üret (Basit Mantık)
-    cevap = "Seni dinliyorum arkadaşım, anlatmaya devam et."
-    if "iyi" in text.lower(): cevap = "Yaşasın! Bunu duyduğuma çok sevindim!"
-    elif "üzgün" in text.lower() or "kötü" in text.lower(): cevap = "Canım arkadaşım, ben her zaman senin yanındayım. Bana her şeyi anlatabilirsin."
-    
-    st.session_state.mesajlar.append({"rol": "tavsan", "metin": cevap})
+if konusma:
+    st.session_state.mesajlar.append({
+        "rol": "cocuk",
+        "metin": konusma
+    })
+
+    st.session_state.notlar.append(
+        f"{datetime.now().strftime('%H:%M')} - Çocuk: {konusma}"
+    )
+
+    duygu = duygu_belirle(konusma)
+    cevap = random.choice(CEVAPLAR[duygu])
+
+    st.session_state.mesajlar.append({
+        "rol": "tavsan",
+        "metin": cevap
+    })
+
     st.rerun()
 
-# --- VELİ PANELİ ---
+# -------------------------------------------------
+# VELİ PANELİ (OPSİYONEL)
+# -------------------------------------------------
 with st.sidebar:
     st.header("Veli Alanı")
-    if st.text_input("Şifre", type="password") == "1234":
-        st.write("### Sohbet Kayıtları")
+    sifre = st.text_input("Şifre", type="password")
+    if sifre == "1234":
+        st.subheader("Sohbet Kayıtları")
         for n in st.session_state.notlar:
             st.text(n)
