@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SES METNİ DÜZENLEME (ROBOT HİSSİNİ AZALTIR)
+# SES METNİ DÜZENLEME (DOĞAL DURAKLAMA)
 # -------------------------------------------------
 def ses_metin_duzelt(metin):
     metin = metin.strip()
@@ -24,7 +24,7 @@ def ses_metin_duzelt(metin):
     return metin
 
 # -------------------------------------------------
-# SES OLUŞTURMA (DENGELİ / ÇOCUK DOSTU)
+# SES OLUŞTURMA
 # -------------------------------------------------
 def ses_olustur(metin):
     metin = ses_metin_duzelt(metin)
@@ -35,12 +35,12 @@ def ses_olustur(metin):
     return fp
 
 # -------------------------------------------------
-# CEVAP HAVUZLARI
+# CEVAPLAR
 # -------------------------------------------------
 CEVAPLAR = {
     "mutlu": [
         "Yaşaaasın... buna çok sevindim!",
-        "Vay canına... bu çok güzel!"
+        "Vay canına... bu harika!"
     ],
     "uzgun": [
         "Hmmm... biraz üzülmüş gibisin.",
@@ -48,7 +48,7 @@ CEVAPLAR = {
     ],
     "korkmus": [
         "Şu an güvendesin... ben buradayım.",
-        "Korku bazen gelir... sonra gider."
+        "Korku bazen gelir... sonra geçer."
     ],
     "ofkeli": [
         "Biraz kızgın hissediyorsun galiba.",
@@ -78,12 +78,6 @@ def duygu_belirle(m):
 # -------------------------------------------------
 # SESSION STATE
 # -------------------------------------------------
-if "mesajlar" not in st.session_state:
-    st.session_state.mesajlar = [{
-        "rol": "tavsan",
-        "metin": "Merhaba... ben Tavşan. Seninle sohbet etmeyi seviyorum. Nasılsın?"
-    }]
-
 if "ilk_ses" not in st.session_state:
     st.session_state.ilk_ses = False
 
@@ -91,28 +85,22 @@ if "notlar" not in st.session_state:
     st.session_state.notlar = []
 
 # -------------------------------------------------
-# ARAYÜZ
+# ARAYÜZ (SADE)
 # -------------------------------------------------
-st.title("🐰 Duygu Arkadaşı Tavşan")
-st.image("https://img.icons8.com/color/200/rabbit.png", width=160)
+st.image("https://img.icons8.com/color/200/rabbit.png", width=180)
+st.markdown("### 🐰 Tavşan seni dinliyor")
 
 # -------------------------------------------------
-# İLK MESAJI SESLİ OKU
+# İLK KARŞILAMA (SADECE SES)
 # -------------------------------------------------
 if not st.session_state.ilk_ses:
-    ilk = st.session_state.mesajlar[0]["metin"]
-    st.write("**Tavşan:**", ilk)
-    st.audio(ses_olustur(ilk), autoplay=True)
+    ilk_mesaj = (
+        "Merhaba... ben Tavşan. "
+        "Seninle konuşmayı çok seviyorum. "
+        "Hazırsan başlayabiliriz."
+    )
+    st.audio(ses_olustur(ilk_mesaj), autoplay=True)
     st.session_state.ilk_ses = True
-
-# -------------------------------------------------
-# SOHBET GEÇMİŞİ
-# -------------------------------------------------
-for m in st.session_state.mesajlar[1:]:
-    if m["rol"] == "cocuk":
-        st.write("**Sen:**", m["metin"])
-    else:
-        st.write("**Tavşan:**", m["metin"])
 
 # -------------------------------------------------
 # SESLİ GİRİŞ
@@ -120,13 +108,12 @@ for m in st.session_state.mesajlar[1:]:
 st.write("---")
 konusma = speech_to_text(
     language="tr",
-    start_prompt="🎤 Konuş",
-    stop_prompt="Dinliyorum",
+    start_prompt="🎤 Konuşmak için dokun",
+    stop_prompt="Dinliyorum...",
     key="mic"
 )
 
 if konusma:
-    st.session_state.mesajlar.append({"rol": "cocuk", "metin": konusma})
     st.session_state.notlar.append(
         f"{datetime.now().strftime('%H:%M')} - {konusma}"
     )
@@ -134,11 +121,10 @@ if konusma:
     duygu = duygu_belirle(konusma)
     cevap = random.choice(CEVAPLAR[duygu])
 
-    st.session_state.mesajlar.append({"rol": "tavsan", "metin": cevap})
-    st.rerun()
+    st.audio(ses_olustur(cevap), autoplay=True)
 
 # -------------------------------------------------
-# VELİ PANELİ
+# VELİ PANELİ (GİZLİ)
 # -------------------------------------------------
 with st.sidebar:
     st.header("Veli Alanı")
