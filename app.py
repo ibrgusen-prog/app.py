@@ -14,109 +14,81 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SES OLUŞTURMA (YUMUŞAK / ÇOCUK DOSTU)
+# SES OLUŞTURMA
 # -------------------------------------------------
 def ses_olustur(metin):
-    tts = gTTS(
-        text=metin,
-        lang="tr",
-        slow=True  # ÇOCUKLAR İÇİN ÇOK ÖNEMLİ
-    )
+    tts = gTTS(text=metin, lang="tr", slow=True)
     fp = io.BytesIO()
     tts.write_to_fp(fp)
     fp.seek(0)
     return fp
 
 # -------------------------------------------------
-# CEVAP HAVUZLARI (ÇOCUK PSİKOLOJİSİNE UYGUN)
+# CEVAPLAR
 # -------------------------------------------------
 CEVAPLAR = {
     "mutlu": [
         "Yaşaaasın! Buna çok sevindim!",
-        "Vay canına! Bu çok güzel!",
-        "Kalbin pır pır mı ediyor?"
+        "Vay canına! Bu çok güzel!"
     ],
     "uzgun": [
         "Hmmm… canın biraz acımış gibi.",
-        "Gel buraya, ben seninleyim.",
-        "Üzgün olmak bazen olur."
+        "Ben buradayım, yalnız değilsin."
     ],
     "korkmus": [
-        "Korku bazen minicik bir canavar gibidir.",
-        "Şu an güvendesin, ben buradayım.",
-        "İstersen korkuyu küçültelim."
+        "Şu an güvendesin.",
+        "Korku bazen gelir ama geçer."
     ],
     "ofkeli": [
-        "Öfke bazen hop diye gelir.",
-        "Birlikte yavaşça nefes alalım mı?",
-        "İçindeki sıcak topu hissediyor musun?"
+        "Biraz kızgın hissediyorsun galiba.",
+        "İstersen birlikte nefes alalım."
     ],
     "notr": [
-        "Hımm… seni dinliyorum.",
-        "Anlat bakalım.",
-        "Ben buradayım."
+        "Seni dinliyorum.",
+        "Anlat bakalım."
     ]
 }
 
-# -------------------------------------------------
-# DUYGU TESPİTİ (BASİT AMA ETKİLİ)
-# -------------------------------------------------
-def duygu_belirle(metin):
-    m = metin.lower()
-    if any(k in m for k in ["mutlu", "iyi", "güzel", "sevindim", "harika"]):
-        return "mutlu"
-    if any(k in m for k in ["üzgün", "kötü", "ağladım", "canım acıdı"]):
-        return "uzgun"
-    if any(k in m for k in ["korktum", "korkuyorum", "karanlık"]):
-        return "korkmus"
-    if any(k in m for k in ["kızdım", "sinirliyim", "öfkeliyim"]):
-        return "ofkeli"
+def duygu_belirle(m):
+    m = m.lower()
+    if any(k in m for k in ["iyi", "mutlu", "güzel"]): return "mutlu"
+    if any(k in m for k in ["üzgün", "kötü", "ağladım"]): return "uzgun"
+    if any(k in m for k in ["korktum", "korkuyorum"]): return "korkmus"
+    if any(k in m for k in ["kızdım", "sinirliyim"]): return "ofkeli"
     return "notr"
 
 # -------------------------------------------------
-# SESSION STATE
+# SESSION STATE (KRİTİK KISIM)
 # -------------------------------------------------
 if "mesajlar" not in st.session_state:
     st.session_state.mesajlar = [{
         "rol": "tavsan",
-        "metin": (
-            "Merhaba arkadaşım. Ben Tavşan. "
-            "Seninle oyun oynamayı ve sohbet etmeyi seviyorum. "
-            "Bugün nasılsın?"
-        )
+        "metin": "Merhaba. Ben Tavşan. Seninle sohbet etmeyi seviyorum. Nasılsın?"
     }]
+
+if "ilk_ses" not in st.session_state:
     st.session_state.ilk_ses = False
 
 if "notlar" not in st.session_state:
     st.session_state.notlar = []
 
 # -------------------------------------------------
-# GÖRSELLER
-# -------------------------------------------------
-TAVSAN_RESIMLERI = {
-    "normal": "https://img.icons8.com/color/200/rabbit.png",
-    "mutlu": "https://img.icons8.com/color/200/happy-rabbit.png",
-    "uzgun": "https://img.icons8.com/color/200/sad-rabbit.png"
-}
-
-# -------------------------------------------------
 # ARAYÜZ
 # -------------------------------------------------
 st.title("🐰 Duygu Arkadaşı Tavşan")
-
-st.image(TAVSAN_RESIMLERI["normal"], width=160)
+st.image("https://img.icons8.com/color/200/rabbit.png", width=160)
 
 # -------------------------------------------------
-# İLK MESAJI SESLİ OKU (SADECE 1 KEZ)
+# İLK SES
 # -------------------------------------------------
 if not st.session_state.ilk_ses:
     ilk = st.session_state.mesajlar[0]["metin"]
     st.write("**Tavşan:**", ilk)
-    st.audio(ses_olustur(ilk), format="audio/mp3", autoplay=True)
+    st.audio(ses_olustur(ilk), autoplay=True)
     st.session_state.ilk_ses = True
 
 # -------------------------------------------------
-# ÖNCEKİ MESAJLAR
+# SOHBET
 # -------------------------------------------------
 for m in st.session_state.mesajlar[1:]:
     if m["rol"] == "cocuk":
@@ -130,38 +102,28 @@ for m in st.session_state.mesajlar[1:]:
 st.write("---")
 konusma = speech_to_text(
     language="tr",
-    start_prompt="🎤 Konuşmak için dokun",
-    stop_prompt="Dinliyorum...",
+    start_prompt="🎤 Konuş",
+    stop_prompt="Dinliyorum",
     key="mic"
 )
 
 if konusma:
-    st.session_state.mesajlar.append({
-        "rol": "cocuk",
-        "metin": konusma
-    })
-
+    st.session_state.mesajlar.append({"rol": "cocuk", "metin": konusma})
     st.session_state.notlar.append(
-        f"{datetime.now().strftime('%H:%M')} - Çocuk: {konusma}"
+        f"{datetime.now().strftime('%H:%M')} - {konusma}"
     )
 
     duygu = duygu_belirle(konusma)
     cevap = random.choice(CEVAPLAR[duygu])
 
-    st.session_state.mesajlar.append({
-        "rol": "tavsan",
-        "metin": cevap
-    })
-
+    st.session_state.mesajlar.append({"rol": "tavsan", "metin": cevap})
     st.rerun()
 
 # -------------------------------------------------
-# VELİ PANELİ (OPSİYONEL)
+# VELİ PANELİ
 # -------------------------------------------------
 with st.sidebar:
     st.header("Veli Alanı")
-    sifre = st.text_input("Şifre", type="password")
-    if sifre == "1234":
-        st.subheader("Sohbet Kayıtları")
+    if st.text_input("Şifre", type="password") == "1234":
         for n in st.session_state.notlar:
             st.text(n)
