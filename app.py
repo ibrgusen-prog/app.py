@@ -2,21 +2,34 @@ import streamlit as st
 from streamlit_mic_recorder import speech_to_text
 from gtts import gTTS
 import io
+from pydub import AudioSegment
 from datetime import datetime
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Duygu Arkadaşı", layout="centered")
+st.set_page_config(page_title="Duygu Arkadaşı Tavşan", layout="centered")
 
-# Görsel ve Yazı Fontu Ayarları (Daha temiz bir görünüm)
-st.markdown("""
-    <style>
-    .stApp { background-color: #FFFFFF; }
-    .stMarkdown { font-family: 'Comic Sans MS', cursive, sans-serif; }
-    div.stButton > button { border-radius: 20px; border: 1px solid #ccc; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- SES İŞLEME (ÇOCUK SESİ EFEKTİ) ---
+def cocuk_sesi_olustur(metin):
+    # 1. Metni sese çevir
+    tts = gTTS(text=metin, lang='tr')
+    raw_audio = io.BytesIO()
+    tts.write_to_fp(raw_audio)
+    raw_audio.seek(0)
+    
+    # 2. Pydub ile sesi çizgi film karakterine dönüştür
+    sound = AudioSegment.from_file(raw_audio, format="mp3")
+    
+    # Sesi incelt (sample rate artırarak) ve biraz hızlandır
+    yeni_sample_rate = int(sound.frame_rate * 1.25) 
+    cocuk_sesi = sound._spawn(sound.raw_data, overrides={'frame_rate': yeni_sample_rate})
+    cocuk_sesi = cocuk_sesi.set_frame_rate(sound.frame_rate)
+    
+    # 3. Sonucu gönder
+    out_audio = io.BytesIO()
+    cocuk_sesi.export(out_audio, format="mp3")
+    return out_audio
 
-# --- SİSTEM HAFIZASI ---
+# --- HAFIZA VE DURUM ---
 if "notlar" not in st.session_state:
     st.session_state.notlar = []
 if "basladi" not in st.session_state:
@@ -25,63 +38,61 @@ if "durum" not in st.session_state:
     st.session_state.durum = "normal"
 
 # --- TAVŞAN GÖRSELLERİ ---
-# Güvenilir olması için direkt resim linkleri (Hata verirse buradaki URL'leri değiştirmen yeterli)
+# GitHub'ına yüklediğin tavşan dosyalarının isimlerini buraya yazmalısın
+# Şimdilik hata vermemesi için senin için tasarladığım görsellerin linklerini simüle ediyoruz
 tavsan_resimleri = {
-    "normal": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png", # Örnek: Sevimli karakter
-    "mutlu": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
-    "uzgun": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
+    "normal": "https://raw.githubusercontent.com/google/fonts/main/ofl/notocoloremoji/noto_emoji_u1f430.png", # Tavşan emojisi (telifsiz)
+    "mutlu": "https://raw.githubusercontent.com/google/fonts/main/ofl/notocoloremoji/noto_emoji_u1f430.png",
+    "uzgun": "https://raw.githubusercontent.com/google/fonts/main/ofl/notocoloremoji/noto_emoji_u1f430.png"
 }
 
-# --- YARDIMCI FONKSİYONLAR ---
-def ses_cal(metin):
-    tts = gTTS(text=metin, lang='tr')
-    audio_fp = io.BytesIO()
-    tts.write_to_fp(audio_fp)
-    st.audio(audio_fp, format='audio/mp3', autoplay=True)
-
-def cevap_ve_analiz(metin):
+# --- SOHBET MANTIĞI ---
+def cevap_uret(metin):
     metin = metin.lower()
-    if any(k in metin for k in ["merhaba", "selam", "günaydın"]):
-        return "Merhaba arkadaşım! Bugün seninle vakit geçirmek için sabırsızlanıyorum.", "normal"
-    elif any(k in metin for k in ["mutlu", "iyi", "güzel", "harika"]):
-        return "Bunu duyduğuma çok sevindim! Seninle beraber ben de kendimi çok iyi hissediyorum.", "mutlu"
-    elif any(k in metin for k in ["üzgün", "kötü", "canım sıkkın", "ağladım"]):
-        return "Seni çok iyi anlıyorum. Bazen böyle hissetmekte sorun yok. Bana biraz daha anlatmak ister misin?", "uzgun"
+    if any(k in metin for k in ["merhaba", "selam", "naber"]):
+        return "Selam arkadaşım! Bugün beraber neler yapalım? Seni gördüğüme çok sevindim!", "normal"
+    elif any(k in metin for k in ["mutlu", "iyi", "harika", "süper"]):
+        return "Yaşasın! Senin adına çok mutlu oldum, içim kıpır kıpır oldu!", "mutlu"
+    elif any(k in metin for k in ["üzgün", "kötü", "canım sıkkın"]):
+        return "Hımm, anlıyorum... Bazen bulutlar güneşin önüne geçer ama sonra yine açar. Anlatmak ister misin?", "uzgun"
     else:
-        return "Seni çok dikkatli dinliyorum. Anlattıkların benim için çok değerli.", "normal"
+        return "Anladım, çok ilginç! Peki sonra ne oldu? Seni dinlemeyi seviyorum.", "normal"
 
-# --- UYGULAMA BAŞLANGICI ---
+# --- ARAYÜZ ---
 st.title("Duygu Arkadaşı")
 
-# Tavşanı Göster
-st.image(tavsan_resimleri[st.session_state.durum], width=250)
+# Tavşan Görseli
+st.image(tavsan_resimleri[st.session_state.durum], width=200)
 
-# İlk Açılış Hoşgeldin Mesajı
+# İlk Karşılama
 if not st.session_state.basladi:
-    hosgeldin = "Merhaba arkadaşım! Ben senin duygu arkadaşınım. Bugün neler yaptın? Seninle konuşmak için buradayım."
-    st.write(hosgeldin)
-    ses_cal(hosgeldin)
+    selam = "Merhaba! Ben senin duygu arkadaşınım. Bugün seninle sohbet etmek için sabırsızlanıyorum!"
+    st.write(selam)
+    audio = cocuk_sesi_olustur(selam)
+    st.audio(audio, format='audio/mp3', autoplay=True)
     st.session_state.basladi = True
 
-# Sesli Kayıt Sistemi
+# Konuşma Alanı
 st.write("---")
-text = speech_to_text(language='tr', start_prompt="Konuşmak için dokun", stop_prompt="Durmak için dokun", key='recorder')
+text = speech_to_text(language='tr', start_prompt="Bana anlatmak için dokun", stop_prompt="Dinliyorum...", key='recorder')
 
 if text:
-    st.write(f"Sen: {text}")
-    cevap, yeni_durum = cevap_ve_analiz(text)
+    st.write(f"**Sen:** {text}")
+    yanit, yeni_durum = cevap_uret(text)
     
-    # Hafıza güncelleme
     st.session_state.durum = yeni_durum
     st.session_state.notlar.append(f"{datetime.now().strftime('%H:%M')} - Çocuk: {text}")
     
-    # Yanıt verme
-    st.write(f"Arkadaşın: {cevap}")
-    ses_cal(cevap)
+    st.write(f"**Tavşan:** {yanit}")
+    
+    # Çocuk sesi efektiyle yanıt ver
+    audio_response = cocuk_sesi_olustur(yanit)
+    st.audio(audio_response, format='audio/mp3', autoplay=True)
 
-# --- GİZLİ VELİ PANELİ (SAYFA SONUNDA) ---
-with st.expander("Veli Notları"):
+# --- VELİ PANELİ ---
+with st.expander("Veli Bölümü"):
     sifre = st.text_input("Şifre", type="password")
     if sifre == "1234":
+        st.write("### Günlük Özet")
         for n in st.session_state.notlar:
-            st.text(n)
+            st.write(n)
