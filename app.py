@@ -2,79 +2,86 @@ import streamlit as st
 from streamlit_mic_recorder import speech_to_text
 from gtts import gTTS
 import io
-import base64
 from datetime import datetime
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Duygu Arkadaşı", page_icon="🐰")
+st.set_page_config(page_title="Duygu Arkadaşı", layout="centered")
 
-# --- CSS İLE GÜZELLEŞTİRME ---
+# Görsel ve Yazı Fontu Ayarları (Daha temiz bir görünüm)
 st.markdown("""
     <style>
-    .stApp { background-color: #F0F8FF; }
-    .tavsan-container { display: flex; justify-content: center; margin-bottom: 20px; }
-    .chat-box { background: white; padding: 20px; border-radius: 15px; border: 2px solid #87CEEB; }
+    .stApp { background-color: #FFFFFF; }
+    .stMarkdown { font-family: 'Comic Sans MS', cursive, sans-serif; }
+    div.stButton > button { border-radius: 20px; border: 1px solid #ccc; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- ASİSTAN MANTIĞI ---
+# --- SİSTEM HAFIZASI ---
 if "notlar" not in st.session_state:
     st.session_state.notlar = []
+if "basladi" not in st.session_state:
+    st.session_state.basladi = False
+if "durum" not in st.session_state:
+    st.session_state.durum = "normal"
 
-def cevap_uret(metin):
-    metin = metin.lower()
-    if "mutlu" in metin or "iyi" in metin:
-        return "Harika! Senin mutlu olman beni de zıplatıyor! 🐰✨", "mutlu"
-    elif "üzgün" in metin or "kötü" in metin:
-        return "Üzülme arkadaşım, yanındayım. Bir sarılmaya ne dersin? 🫂", "uzgun"
-    elif "korku" in metin or "korkuyorum" in metin:
-        return "Derin bir nefes al... Ben buradayım, güvendesin. 🌟", "korku"
-    else:
-        return "Seni dinliyorum, anlatmak istediğin başka bir şey var mı? 😊", "normal"
-
-# --- TAVŞAN GÖRSELİ (URL veya Yerel Dosya) ---
-# Buraya internetten bulduğun hareketli tavşan GIF linklerini ekleyebilirsin
-tavsan_gifleri = {
-    "normal": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueGZ3bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZ2VudGlmaWVyJmN0PWc/3o7TKSjP6S5fthJCuQ/giphy.gif",
-    "mutlu": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueGZ3bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZ2VudGlmaWVyJmN0PWc/l41lTfuxV5wWvJv9S/giphy.gif",
-    "uzgun": "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueGZ3bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6bmR6JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZ2VudGlmaWVyJmN0PWc/3o7TKMGpxx7UuF4U5W/giphy.gif"
+# --- TAVŞAN GÖRSELLERİ ---
+# Güvenilir olması için direkt resim linkleri (Hata verirse buradaki URL'leri değiştirmen yeterli)
+tavsan_resimleri = {
+    "normal": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png", # Örnek: Sevimli karakter
+    "mutlu": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
+    "uzgun": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
 }
 
-# --- ARAYÜZ ---
-st.title("🐰 Duygu Arkadaşı Tavşan")
-
-# Tavşanı Göster
-durum = st.session_state.get("durum", "normal")
-st.image(tavsan_gifleri.get(durum, tavsan_gifleri["normal"]), width=300)
-
-st.write("### Hadi Konuşalım!")
-# Sesli Kayıt Butonu
-text = speech_to_text(language='tr', start_prompt="🎤 Konuşmak için bas", stop_prompt="⏹️ Durdur", key='recorder')
-
-if text:
-    st.write(f"**Sen:** {text}")
-    cevap, yeni_durum = cevap_uret(text)
-    st.session_state.durum = yeni_durum
-    
-    # Notları Kaydet (Veli için)
-    st.session_state.notlar.append(f"{datetime.now().strftime('%H:%M')} - Çocuk: {text} | Duygu: {yeni_durum}")
-    
-    st.write(f"**Tavşan:** {cevap}")
-    
-    # Sese Çevir ve Oynat
-    tts = gTTS(text=cevap, lang='tr')
+# --- YARDIMCI FONKSİYONLAR ---
+def ses_cal(metin):
+    tts = gTTS(text=metin, lang='tr')
     audio_fp = io.BytesIO()
     tts.write_to_fp(audio_fp)
     st.audio(audio_fp, format='audio/mp3', autoplay=True)
 
-# --- VELİ BÖLÜMÜ ---
-with st.sidebar:
-    st.header("🔐 Veli Paneli")
+def cevap_ve_analiz(metin):
+    metin = metin.lower()
+    if any(k in metin for k in ["merhaba", "selam", "günaydın"]):
+        return "Merhaba arkadaşım! Bugün seninle vakit geçirmek için sabırsızlanıyorum.", "normal"
+    elif any(k in metin for k in ["mutlu", "iyi", "güzel", "harika"]):
+        return "Bunu duyduğuma çok sevindim! Seninle beraber ben de kendimi çok iyi hissediyorum.", "mutlu"
+    elif any(k in metin for k in ["üzgün", "kötü", "canım sıkkın", "ağladım"]):
+        return "Seni çok iyi anlıyorum. Bazen böyle hissetmekte sorun yok. Bana biraz daha anlatmak ister misin?", "uzgun"
+    else:
+        return "Seni çok dikkatli dinliyorum. Anlattıkların benim için çok değerli.", "normal"
+
+# --- UYGULAMA BAŞLANGICI ---
+st.title("Duygu Arkadaşı")
+
+# Tavşanı Göster
+st.image(tavsan_resimleri[st.session_state.durum], width=250)
+
+# İlk Açılış Hoşgeldin Mesajı
+if not st.session_state.basladi:
+    hosgeldin = "Merhaba arkadaşım! Ben senin duygu arkadaşınım. Bugün neler yaptın? Seninle konuşmak için buradayım."
+    st.write(hosgeldin)
+    ses_cal(hosgeldin)
+    st.session_state.basladi = True
+
+# Sesli Kayıt Sistemi
+st.write("---")
+text = speech_to_text(language='tr', start_prompt="Konuşmak için dokun", stop_prompt="Durmak için dokun", key='recorder')
+
+if text:
+    st.write(f"Sen: {text}")
+    cevap, yeni_durum = cevap_ve_analiz(text)
+    
+    # Hafıza güncelleme
+    st.session_state.durum = yeni_durum
+    st.session_state.notlar.append(f"{datetime.now().strftime('%H:%M')} - Çocuk: {text}")
+    
+    # Yanıt verme
+    st.write(f"Arkadaşın: {cevap}")
+    ses_cal(cevap)
+
+# --- GİZLİ VELİ PANELİ (SAYFA SONUNDA) ---
+with st.expander("Veli Notları"):
     sifre = st.text_input("Şifre", type="password")
     if sifre == "1234":
-        st.write("### Görüşme Analizi")
-        for not_item in st.session_state.notlar:
-            st.text(not_item)
-        if st.button("Raporu İndir"):
-            rapor = "\n".join(st.session_state.notlar)
-            st.download_button("Dosyayı Kaydet", rapor, file_name="analiz.txt")
+        for n in st.session_state.notlar:
+            st.text(n)
