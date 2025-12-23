@@ -8,13 +8,23 @@ from datetime import datetime
 # Sayfa Ayarları
 st.set_page_config(page_title="Duygu Arkadaşı Tavşan", layout="centered")
 
-# --- SES İŞLEME (ÇOCUK SESİ EFEKTİ) ---
 def cocuk_sesi_olustur(metin):
-    # 1. Metni sese çevir
     tts = gTTS(text=metin, lang='tr')
     raw_audio = io.BytesIO()
     tts.write_to_fp(raw_audio)
     raw_audio.seek(0)
+    
+    # Formatı açıkça belirtelim
+    sound = AudioSegment.from_mp3(raw_audio)
+    
+    # Sesi inceltip hızlandır (Çocuk sesi efekti)
+    yeni_sample_rate = int(sound.frame_rate * 1.35) 
+    cocuk_sesi = sound._spawn(sound.raw_data, overrides={'frame_rate': yeni_sample_rate})
+    cocuk_sesi = cocuk_sesi.set_frame_rate(sound.frame_rate)
+    
+    out_audio = io.BytesIO()
+    cocuk_sesi.export(out_audio, format="mp3")
+    return out_audio
     
     # 2. Pydub ile sesi çizgi film karakterine dönüştür
     sound = AudioSegment.from_file(raw_audio, format="mp3")
