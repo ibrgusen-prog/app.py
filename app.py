@@ -14,56 +14,74 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SES OLUŞTURMA
+# SES METNİ DÜZENLEME (ROBOT HİSSİNİ AZALTIR)
+# -------------------------------------------------
+def ses_metin_duzelt(metin):
+    metin = metin.strip()
+    metin = metin.replace(".", "... ")
+    metin = metin.replace("!", "! ")
+    metin = metin.replace("?", "? ")
+    return metin
+
+# -------------------------------------------------
+# SES OLUŞTURMA (DENGELİ / ÇOCUK DOSTU)
 # -------------------------------------------------
 def ses_olustur(metin):
-    tts = gTTS(text=metin, lang="tr", slow=True)
+    metin = ses_metin_duzelt(metin)
+    tts = gTTS(text=metin, lang="tr", slow=False)
     fp = io.BytesIO()
     tts.write_to_fp(fp)
     fp.seek(0)
     return fp
 
 # -------------------------------------------------
-# CEVAPLAR
+# CEVAP HAVUZLARI
 # -------------------------------------------------
 CEVAPLAR = {
     "mutlu": [
-        "Yaşaaasın! Buna çok sevindim!",
-        "Vay canına! Bu çok güzel!"
+        "Yaşaaasın... buna çok sevindim!",
+        "Vay canına... bu çok güzel!"
     ],
     "uzgun": [
-        "Hmmm… canın biraz acımış gibi.",
-        "Ben buradayım, yalnız değilsin."
+        "Hmmm... biraz üzülmüş gibisin.",
+        "Gel buraya... ben seninleyim."
     ],
     "korkmus": [
-        "Şu an güvendesin.",
-        "Korku bazen gelir ama geçer."
+        "Şu an güvendesin... ben buradayım.",
+        "Korku bazen gelir... sonra gider."
     ],
     "ofkeli": [
         "Biraz kızgın hissediyorsun galiba.",
         "İstersen birlikte nefes alalım."
     ],
     "notr": [
-        "Seni dinliyorum.",
+        "Hımm... seni dinliyorum.",
         "Anlat bakalım."
     ]
 }
 
+# -------------------------------------------------
+# DUYGU TESPİTİ
+# -------------------------------------------------
 def duygu_belirle(m):
     m = m.lower()
-    if any(k in m for k in ["iyi", "mutlu", "güzel"]): return "mutlu"
-    if any(k in m for k in ["üzgün", "kötü", "ağladım"]): return "uzgun"
-    if any(k in m for k in ["korktum", "korkuyorum"]): return "korkmus"
-    if any(k in m for k in ["kızdım", "sinirliyim"]): return "ofkeli"
+    if any(k in m for k in ["mutlu", "iyi", "güzel", "sevindim"]):
+        return "mutlu"
+    if any(k in m for k in ["üzgün", "kötü", "ağladım"]):
+        return "uzgun"
+    if any(k in m for k in ["korktum", "korkuyorum"]):
+        return "korkmus"
+    if any(k in m for k in ["kızdım", "sinirliyim"]):
+        return "ofkeli"
     return "notr"
 
 # -------------------------------------------------
-# SESSION STATE (KRİTİK KISIM)
+# SESSION STATE
 # -------------------------------------------------
 if "mesajlar" not in st.session_state:
     st.session_state.mesajlar = [{
         "rol": "tavsan",
-        "metin": "Merhaba. Ben Tavşan. Seninle sohbet etmeyi seviyorum. Nasılsın?"
+        "metin": "Merhaba... ben Tavşan. Seninle sohbet etmeyi seviyorum. Nasılsın?"
     }]
 
 if "ilk_ses" not in st.session_state:
@@ -79,7 +97,7 @@ st.title("🐰 Duygu Arkadaşı Tavşan")
 st.image("https://img.icons8.com/color/200/rabbit.png", width=160)
 
 # -------------------------------------------------
-# İLK SES
+# İLK MESAJI SESLİ OKU
 # -------------------------------------------------
 if not st.session_state.ilk_ses:
     ilk = st.session_state.mesajlar[0]["metin"]
@@ -88,7 +106,7 @@ if not st.session_state.ilk_ses:
     st.session_state.ilk_ses = True
 
 # -------------------------------------------------
-# SOHBET
+# SOHBET GEÇMİŞİ
 # -------------------------------------------------
 for m in st.session_state.mesajlar[1:]:
     if m["rol"] == "cocuk":
